@@ -3,12 +3,16 @@ import RollupCompiler from './RollupCompiler';
 import { WebpackCompiler } from './WebpackCompiler';
 import { set_dev, set_src, set_dest } from '../../config/env';
 
+// TODO make that a regular option
+const NOLLUP = !!process.env.NOLLUP
+
 export type Compiler = RollupCompiler | WebpackCompiler;
 
 export type Compilers = {
 	client: Compiler;
 	server: Compiler;
 	serviceworker?: Compiler;
+	dev_server: boolean;
 }
 
 export default async function create_compilers(
@@ -23,7 +27,7 @@ export default async function create_compilers(
 	set_dest(dest);
 
 	if (bundler === 'rollup') {
-		const config = await RollupCompiler.load_config(cwd);
+		const config = await RollupCompiler.load_config(cwd, NOLLUP);
 		validate_config(config, 'rollup');
 
 		normalize_rollup_config(config.client);
@@ -34,9 +38,11 @@ export default async function create_compilers(
 		}
 
 		return {
-			client: new RollupCompiler(config.client),
+			client: new RollupCompiler(config.client, NOLLUP && dev),
 			server: new RollupCompiler(config.server),
-			serviceworker: config.serviceworker && new RollupCompiler(config.serviceworker)
+			serviceworker: config.serviceworker && new RollupCompiler(config.serviceworker),
+			// Nollup provides its own dev server
+			dev_server: !NOLLUP,
 		};
 	}
 
@@ -47,7 +53,8 @@ export default async function create_compilers(
 		return {
 			client: new WebpackCompiler(config.client),
 			server: new WebpackCompiler(config.server),
-			serviceworker: config.serviceworker && new WebpackCompiler(config.serviceworker)
+			serviceworker: config.serviceworker && new WebpackCompiler(config.serviceworker),
+			dev_server: true,
 		};
 	}
 

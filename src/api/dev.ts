@@ -179,8 +179,6 @@ class Watcher extends EventEmitter {
 			return;
 		}
 
-		this.dev_server = new DevServer(this.dev_port);
-
 		this.filewatchers.push(
 			watch_dir(
 				routes,
@@ -210,7 +208,17 @@ class Watcher extends EventEmitter {
 			)
 		);
 
-		if (this.live) {
+		let deferred = new Deferred();
+
+		// TODO watch the configs themselves?
+		const compilers: Compilers = await create_compilers(this.bundler, cwd, src, dest, true);
+
+		// Nollup provides its own dev server & protocol
+		if (compilers.dev_server) {
+			this.dev_server = new DevServer(this.dev_port);
+		}
+
+		if (this.live && this.dev_server) {
 			this.filewatchers.push(
 				fs.watch(`${src}/template.html`, () => {
 					this.dev_server.send({
@@ -219,11 +227,6 @@ class Watcher extends EventEmitter {
 				})
 			);
 		}
-
-		let deferred = new Deferred();
-
-		// TODO watch the configs themselves?
-		const compilers: Compilers = await create_compilers(this.bundler, cwd, src, dest, true);
 
 		const emitFatal = () => {
 			this.emit('fatal', <FatalEvent>{
@@ -253,14 +256,16 @@ class Watcher extends EventEmitter {
 									process: this.proc
 								});
 
-								if (this.hot && this.bundler === 'webpack') {
-									this.dev_server.send({
-										status: 'completed'
-									});
-								} else if (this.live) {
-									this.dev_server.send({
-										action: 'reload'
-									});
+								if (this.dev_server) {
+									if (this.hot && this.bundler === 'webpack') {
+										this.dev_server.send({
+											status: 'completed'
+										});
+									} else if (this.live) {
+										this.dev_server.send({
+											action: 'reload'
+										});
+									}
 								}
 							}))
 							.catch(err => {

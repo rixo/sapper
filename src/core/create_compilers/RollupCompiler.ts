@@ -4,6 +4,7 @@ import { CompileResult } from './interfaces';
 import RollupResult from './RollupResult';
 
 let rollup: any;
+let nollup: any;
 
 export default class RollupCompiler {
 	_: Promise<any>;
@@ -14,14 +15,16 @@ export default class RollupCompiler {
 	errors: any[];
 	chunks: any[];
 	css_files: Array<{ id: string, code: string }>;
+	use_nollup: any;
 
-	constructor(config: any) {
+	constructor(config: any, use_nollup: boolean = false) {
 		this._ = this.get_config(config);
 		this.input = null;
 		this.warnings = [];
 		this.errors = [];
 		this.chunks = [];
 		this.css_files = [];
+		this.use_nollup = use_nollup;
 	}
 
 	async get_config(mod: any) {
@@ -88,7 +91,10 @@ export default class RollupCompiler {
 		const config = await this._;
 		const sourcemap = config.output.sourcemap;
 
-		const watcher = rollup.watch(config);
+		const watcher = this.use_nollup
+			// NOTE depends on experimental Nollup branch
+			? nollup.watch(config)
+			: rollup.watch(config);
 
 		watcher.on('change', (id: string) => {
 			this.chunks = [];
@@ -137,8 +143,9 @@ export default class RollupCompiler {
 		});
 	}
 
-	static async load_config(cwd: string) {
+	static async load_config(cwd: string, use_nollup: boolean = false) {
 		if (!rollup) rollup = relative('rollup', cwd);
+		if (use_nollup && !nollup) nollup = relative('nollup/lib/dev-server', cwd);
 
 		const input = path.resolve(cwd, 'rollup.config.js');
 
